@@ -5,13 +5,16 @@ import { supabase } from '../../../../lib/supabase';
 // GET - Obtener una tarea específica
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Ahora params es una Promise, necesitas await
+    const { id } = await params;
+    
     const { data: task, error } = await supabase
       .from('tasks')
       .select('*')
-      .eq('id', params.id)
+      .eq('id', id)
       .single();
 
     if (error) {
@@ -31,16 +34,17 @@ export async function GET(
 // PUT - Actualizar una tarea
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const body = await request.json();
     const { title, notes, pomodoros, completed } = body;
 
     const { data, error } = await supabase
       .from('tasks')
       .update({ title, notes, pomodoros, completed })
-      .eq('id', params.id)
+      .eq('id', id)
       .select();
 
     if (error) {
@@ -56,13 +60,15 @@ export async function PUT(
 // DELETE - Eliminar una tarea
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
+    
     const { error } = await supabase
       .from('tasks')
       .delete()
-      .eq('id', params.id);
+      .eq('id', id);
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
@@ -72,4 +78,4 @@ export async function DELETE(
   } catch (error) {
     return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
   }
-} 
+}
