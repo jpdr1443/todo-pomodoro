@@ -2,8 +2,16 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 
+// 🎯 Define el tipo de tarea
+interface Task {
+  id: number;
+  title: string;
+  pomodoros: number;
+  completed: boolean;
+}
+
 export default function Home() {
-  const [tasks, setTasks] = useState<any[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]); // ✅ Cambiado de any[] a Task[]
   const [showForm, setShowForm] = useState(false);
   const [input, setInput] = useState("");
   const [pomodoros, setPomodoros] = useState(1);
