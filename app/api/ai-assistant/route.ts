@@ -1,32 +1,22 @@
 import { NextResponse } from "next/server";
-import { processMessage } from "@/lib/processMessage";
+import { createClient } from "@supabase/supabase-js";
 
-export async function POST(req: Request) {
-  try {
-    const formData = await req.formData();
-    const from = formData.get("From") as string | null;
-    const body = formData.get("Body") as string | null;
+// ⚡ Inicializa Supabase
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY! // Usa la Service Role Key en server-side
+);
 
-    if (!body) {
-      return new NextResponse(
-        `<Response><Message>No se recibió un mensaje válido</Message></Response>`,
-        { headers: { "Content-Type": "application/xml" }, status: 400 }
-      );
-    }
+// GET /api/tasks → Lista todas las tareas
+export async function GET() {
+  const { data, error } = await supabase
+    .from("tasks")
+    .select("*")
+    .order("created_at", { ascending: false });
 
-    console.log("📩 Mensaje recibido:", from, body);
-
-    const response = await processMessage(body);
-
-    return new NextResponse(
-      `<Response><Message>${response}</Message></Response>`,
-      { headers: { "Content-Type": "application/xml" } }
-    );
-  } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : "Error desconocido";
-    return new NextResponse(
-      `<Response><Message>Error: ${errorMessage}</Message></Response>`,
-      { headers: { "Content-Type": "application/xml" }, status: 500 }
-    );
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
+
+  return NextResponse.json(data, { status: 200 });
 }
