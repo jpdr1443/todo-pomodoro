@@ -2,6 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '../../../lib/supabase';
 import Groq from 'groq-sdk';
 
+// Definir interfaces para mejor tipado
+interface Task {
+  id: number;
+  title: string;
+  notes: string;
+  pomodoros: number;
+  completed: boolean;
+}
+
 // Inicializar Groq (GRATUITO)
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
@@ -25,7 +34,7 @@ export async function POST(request: NextRequest) {
       console.error('Error obteniendo tareas:', tasksError.message);
     }
 
-    const currentTasks = tasks || [];
+    const currentTasks: Task[] = tasks || [];
 
     // Procesar el mensaje con IA
     const aiResponse = await processAIQuery(message, currentTasks);
@@ -45,8 +54,8 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// 🤖 Función para procesar consultas con IA
-async function processAIQuery(message: string, tasks: any[]) {
+// Función para procesar consultas con IA
+async function processAIQuery(message: string, tasks: Task[]): Promise<string> {
   const lowerMessage = message.toLowerCase();
   
   // Crear contexto de tareas
@@ -54,22 +63,22 @@ async function processAIQuery(message: string, tasks: any[]) {
     `- ${task.completed ? '✅' : '⏱️'} ${task.title}${task.notes ? ` (${task.notes})` : ''} - ${task.pomodoros} pomodoros`
   ).join('\n');
 
-  // 🔍 Detectar si es una consulta de "cómo hacer"
+  // Detectar si es una consulta de "cómo hacer"
   const isHowToQuery = lowerMessage.includes('como') || lowerMessage.includes('cómo') || 
                       lowerMessage.includes('pasos') || lowerMessage.includes('help') ||
                       lowerMessage.includes('ayuda con') || lowerMessage.includes('explicar');
 
-  // 🎯 Encontrar tarea relacionada
-  let relatedTask = null;
+  // Encontrar tarea relacionada
+  let relatedTask: Task | null = null;
   if (isHowToQuery) {
     relatedTask = tasks.find(task => {
       const taskWords = task.title.toLowerCase().split(' ');
       const messageWords = lowerMessage.split(' ');
       return taskWords.some(word => messageWords.includes(word) && word.length > 2);
-    });
+    }) || null;
   }
 
-  // 🤖 Usar Groq para consultas complejas o "cómo hacer"
+  // Usar Groq para consultas complejas o "cómo hacer"
   if (isHowToQuery || lowerMessage.includes('buscar') || lowerMessage.includes('internet')) {
     try {
       const systemPrompt = `Eres un asistente de productividad que ayuda con tareas y técnica Pomodoro. 
@@ -112,15 +121,15 @@ INSTRUCCIONES:
     }
   }
 
-  // 📋 Respuestas básicas (sin IA)
+  // Respuestas básicas (sin IA)
   return await getBasicResponse(message, tasks, taskContext);
 }
 
-// 📝 Respuestas básicas sin IA
-async function getBasicResponse(message: string, tasks: any[], taskContext: string) {
+// Respuestas básicas sin IA
+async function getBasicResponse(message: string, tasks: Task[], taskContext: string): Promise<string> {
   const lowerMessage = message.toLowerCase();
 
-  // 📋 Lista de tareas
+  // Lista de tareas
   if (lowerMessage.includes('lista') || lowerMessage.includes('tareas') || lowerMessage.includes('task')) {
     if (tasks.length === 0) {
       return '📋 *No tienes tareas registradas*\n\nPuedes crear una nueva enviando:\n"agregar: [título de la tarea]"';
@@ -128,7 +137,7 @@ async function getBasicResponse(message: string, tasks: any[], taskContext: stri
     return `📋 *Tus tareas actuales:*\n\n${taskContext}`;
   }
   
-  // ⏳ Tareas pendientes
+  // Tareas pendientes
   if (lowerMessage.includes('pendiente') || lowerMessage.includes('falta') || lowerMessage.includes('por hacer')) {
     const pendingTasks = tasks.filter(task => !task.completed);
     if (pendingTasks.length === 0) {
@@ -140,7 +149,7 @@ async function getBasicResponse(message: string, tasks: any[], taskContext: stri
     return `⏳ *Tareas pendientes (${pendingTasks.length}):*\n\n${pendingContext}`;
   }
   
-  // ✅ Tareas completadas
+  // Tareas completadas
   if (lowerMessage.includes('completada') || lowerMessage.includes('terminada') || lowerMessage.includes('hecha')) {
     const completedTasks = tasks.filter(task => task.completed);
     if (completedTasks.length === 0) {
@@ -152,7 +161,7 @@ async function getBasicResponse(message: string, tasks: any[], taskContext: stri
     return `✅ *Tareas completadas (${completedTasks.length}):*\n\n${completedContext}`;
   }
 
-  // 📊 Estadísticas
+  // Estadísticas
   if (lowerMessage.includes('estadistica') || lowerMessage.includes('resumen') || lowerMessage.includes('stats')) {
     const completed = tasks.filter(t => t.completed).length;
     const pending = tasks.filter(t => !t.completed).length;
@@ -167,7 +176,7 @@ async function getBasicResponse(message: string, tasks: any[], taskContext: stri
            `• 🎯 Pomodoros completados: ${completedPomodoros}`;
   }
 
-  // 🆘 Ayuda
+  // Ayuda
   if (lowerMessage.includes('ayuda') || lowerMessage.includes('help') || lowerMessage.includes('comando')) {
     return `🤖 *Comandos disponibles:*\n\n` +
            `📋 "mis tareas" - Ver todas las tareas\n` +
@@ -190,13 +199,13 @@ async function getBasicResponse(message: string, tasks: any[], taskContext: stri
     return '❌ *Formato incorrecto*\n\nUsa: "agregar: título de la tarea"';
   }
 
-  // 🔍 Buscar tareas
+  // Buscar tareas
   if (lowerMessage.startsWith('buscar:')) {
     const searchTerm = message.split(':')[1]?.trim().toLowerCase();
     if (searchTerm) {
       const foundTasks = tasks.filter(task => 
         task.title.toLowerCase().includes(searchTerm) || 
-        task.notes?.toLowerCase().includes(searchTerm)
+        (task.notes && task.notes.toLowerCase().includes(searchTerm))
       );
       
       if (foundTasks.length === 0) {
@@ -212,7 +221,7 @@ async function getBasicResponse(message: string, tasks: any[], taskContext: stri
     return '❌ *Formato incorrecto*\n\nUsa: "buscar: término"';
   }
 
-  // 🔄 Respuesta por defecto
+  // Respuesta por defecto
   return `🤖 *Recibí:* "${message}"\n\n` +
          `💡 *Prueba preguntar:*\n` +
          `• "cómo hacer preparar café"\n` +
@@ -223,10 +232,10 @@ async function getBasicResponse(message: string, tasks: any[], taskContext: stri
          `${taskContext ? `📋 *Tienes ${tasks.length} tareas*` : '📝 *No tienes tareas*'}`;
 }
 
-// ➕ Función para agregar tareas desde WhatsApp
+// Función para agregar tareas desde WhatsApp
 async function addTaskFromWhatsApp(title: string): Promise<string> {
   try {
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('tasks')
       .insert([{ 
         title: title, 
@@ -241,7 +250,7 @@ async function addTaskFromWhatsApp(title: string): Promise<string> {
       return '❌ *Error al crear la tarea*\n\nIntenta de nuevo más tarde.';
     }
 
-     return `✅ *Tarea creada exitosamente*\n\n📋 ${title}\n🍅 1 pomodoro estimado\n\n¡Puedes verla en tu app web!`;
+    return `✅ *Tarea creada exitosamente*\n\n📋 ${title}\n🍅 1 pomodoro estimado\n\n¡Puedes verla en tu app web!`;
 
   } catch (error) {
     console.error('Error en addTaskFromWhatsApp:', error);
