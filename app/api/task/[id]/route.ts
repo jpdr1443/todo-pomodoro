@@ -11,18 +11,25 @@ export async function PATCH(
   req: Request,
   { params }: { params: { id: string } }
 ) {
-  const body = await req.json();
-  const { status } = body;
+  try {
+    const body = await req.json();
+    const { status } = body;
 
-  const { data, error } = await supabase
-    .from("tasks")
-    .update({ status })
-    .eq("id", params.id)
-    .select();
+    const { data, error } = await supabase
+      .from("tasks")
+      .update({ status })
+      .eq("id", params.id)
+      .select();
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json(data[0], { status: 200 });
+  } catch (err) {
+    return NextResponse.json(
+      { error: "Invalid request" },
+      { status: 400 }
+    );
   }
-
-  return NextResponse.json(data[0], { status: 200 });
 }
