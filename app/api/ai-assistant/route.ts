@@ -9,12 +9,32 @@ interface Task {
   completed: boolean;
 }
 
+// Configurar CORS
+function corsHeaders() {
+  return {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+  };
+}
+
+// Manejar OPTIONS (preflight request)
+export async function OPTIONS() {
+  return new Response(null, {
+    status: 200,
+    headers: corsHeaders(),
+  });
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body: { message: string; user_phone?: string } = await request.json();
     
     if (!body.message?.trim()) {
-      return NextResponse.json({ error: 'Mensaje requerido' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Mensaje requerido' }, 
+        { status: 400, headers: corsHeaders() }
+      );
     }
 
     const { data } = await supabase
@@ -31,14 +51,18 @@ export async function POST(request: NextRequest) {
       success: true,
       response,
       tasks_count: tasks.length
-    });
+    }, { headers: corsHeaders() });
 
   } catch (error: unknown) {
     console.error('Error:', error);
-    return NextResponse.json({ error: 'Error procesando consulta' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Error procesando consulta' }, 
+      { status: 500, headers: corsHeaders() }
+    );
   }
 }
 
+// Resto del código igual...
 async function processMessage(message: string, tasks: Task[]): Promise<string> {
   const lower = message.toLowerCase();
   
