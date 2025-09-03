@@ -1,22 +1,13 @@
+// /app/api/ai-assistant/route.ts (Next.js App Router)
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { processMessage } from "@/lib/processMessage";
 
-// ⚡ Inicializa Supabase
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY! // Usa la Service Role Key en server-side
-);
-
-// GET /api/tasks → Lista todas las tareas
-export async function GET() {
-  const { data, error } = await supabase
-    .from("tasks")
-    .select("*")
-    .order("created_at", { ascending: false });
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+export async function POST(req: Request) {
+  try {
+    const { message } = await req.json();
+    const response = await processMessage(message);
+    return NextResponse.json({ response });
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
-
-  return NextResponse.json(data, { status: 200 });
 }
