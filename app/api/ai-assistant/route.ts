@@ -42,38 +42,55 @@ export async function POST(request: NextRequest) {
 async function processMessage(message: string, tasks: Task[]): Promise<string> {
   const lower = message.toLowerCase();
   
-  // Ayuda
   if (lower.includes('ayuda') || lower.includes('help')) {
-    return `🤖 *Comandos disponibles:*\n\n` +
-           `📋 "mis tareas" - Ver todas las tareas\n` +
-           `⏳ "pendientes" - Ver tareas por hacer\n` +
-           `✅ "completadas" - Ver tareas terminadas\n` +
-           `📊 "resumen" - Estadísticas`;
+    return 'Comandos disponibles:\n\n' +
+           '- "mis tareas" - Ver todas las tareas\n' +
+           '- "pendientes" - Ver tareas por hacer\n' +
+           '- "completadas" - Ver tareas terminadas\n' +
+           '- "resumen" - Estadisticas';
   }
   
-  // Lista de tareas
   if (lower.includes('lista') || lower.includes('tareas')) {
     if (tasks.length === 0) {
-      return '📋 *No tienes tareas registradas*';
+      return 'No tienes tareas registradas';
     }
     const taskList = tasks.map(task => 
-      `- ${task.completed ? '✅' : '⏱️'} ${task.title} - ${task.pomodoros} pomodoros`
+      `- ${task.completed ? 'Completada' : 'Pendiente'}: ${task.title} (${task.pomodoros} pomodoros)`
     ).join('\n');
-    return `📋 *Tus tareas actuales:*\n\n${taskList}`;
+    return `Tus tareas actuales:\n\n${taskList}`;
   }
   
-  // Tareas pendientes
   if (lower.includes('pendiente') || lower.includes('por hacer')) {
     const pending = tasks.filter(task => !task.completed);
     if (pending.length === 0) {
-      return '🎉 *¡No tienes tareas pendientes!*';
+      return 'No tienes tareas pendientes!';
     }
     const pendingList = pending.map(task => 
-      `- ⏱️ ${task.title} - ${task.pomodoros} pomodoros`
+      `- ${task.title} (${task.pomodoros} pomodoros)`
     ).join('\n');
-    return `⏳ *Tareas pendientes (${pending.length}):*\n\n${pendingList}`;
+    return `Tareas pendientes (${pending.length}):\n\n${pendingList}`;
   }
   
-  // Tareas completadas
   if (lower.includes('completada') || lower.includes('terminada')) {
-    const comp
+    const completed = tasks.filter(task => task.completed);
+    if (completed.length === 0) {
+      return 'Aun no has completado ninguna tarea';
+    }
+    const completedList = completed.map(task => `- ${task.title}`).join('\n');
+    return `Tareas completadas (${completed.length}):\n\n${completedList}`;
+  }
+  
+  if (lower.includes('resumen') || lower.includes('estadistica')) {
+    const completedCount = tasks.filter(t => t.completed).length;
+    const pendingCount = tasks.filter(t => !t.completed).length;
+    const totalPomodoros = tasks.reduce((sum, task) => sum + task.pomodoros, 0);
+    
+    return `Resumen de productividad:\n\n` +
+           `Total de tareas: ${tasks.length}\n` +
+           `Completadas: ${completedCount}\n` +
+           `Pendientes: ${pendingCount}\n` +
+           `Pomodoros planificados: ${totalPomodoros}`;
+  }
+  
+  return `Recibi: "${message}"\n\nPrueba: "ayuda", "mis tareas", "pendientes"`;
+}
