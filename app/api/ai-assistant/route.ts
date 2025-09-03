@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '../../../lib/supabase';
-import Groq from 'groq-sdk';
 
 interface Task {
   id: number;
@@ -9,10 +8,6 @@ interface Task {
   pomodoros: number;
   completed: boolean;
 }
-
-const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY || '',
-});
 
 export async function POST(request: NextRequest) {
   try {
@@ -30,6 +25,8 @@ export async function POST(request: NextRequest) {
     const tasks: Task[] = data as Task[] || [];
     const response = await processMessage(body.message, tasks);
 
+    console.log(`Query from ${body.user_phone || 'unknown'}: ${body.message}`);
+
     return NextResponse.json({ 
       success: true,
       response,
@@ -45,14 +42,38 @@ export async function POST(request: NextRequest) {
 async function processMessage(message: string, tasks: Task[]): Promise<string> {
   const lower = message.toLowerCase();
   
-  if (lower.includes('ayuda')) {
-    return 'Comandos: "mis tareas", "pendientes", "completadas", "resumen"';
+  // Ayuda
+  if (lower.includes('ayuda') || lower.includes('help')) {
+    return `🤖 *Comandos disponibles:*\n\n` +
+           `📋 "mis tareas" - Ver todas las tareas\n` +
+           `⏳ "pendientes" - Ver tareas por hacer\n` +
+           `✅ "completadas" - Ver tareas terminadas\n` +
+           `📊 "resumen" - Estadísticas`;
   }
   
-  if (lower.includes('tareas')) {
-    if (tasks.length === 0) return 'No tienes tareas';
-    return `Tienes ${tasks.length} tareas: ${tasks.map(t => t.title).join(', ')}`;
+  // Lista de tareas
+  if (lower.includes('lista') || lower.includes('tareas')) {
+    if (tasks.length === 0) {
+      return '📋 *No tienes tareas registradas*';
+    }
+    const taskList = tasks.map(task => 
+      `- ${task.completed ? '✅' : '⏱️'} ${task.title} - ${task.pomodoros} pomodoros`
+    ).join('\n');
+    return `📋 *Tus tareas actuales:*\n\n${taskList}`;
   }
   
-  return `Recibí: "${message}"`;
-}
+  // Tareas pendientes
+  if (lower.includes('pendiente') || lower.includes('por hacer')) {
+    const pending = tasks.filter(task => !task.completed);
+    if (pending.length === 0) {
+      return '🎉 *¡No tienes tareas pendientes!*';
+    }
+    const pendingList = pending.map(task => 
+      `- ⏱️ ${task.title} - ${task.pomodoros} pomodoros`
+    ).join('\n');
+    return `⏳ *Tareas pendientes (${pending.length}):*\n\n${pendingList}`;
+  }
+  
+  // Tareas completadas
+  if (lower.includes('completada') || lower.includes('terminada')) {
+    const comp

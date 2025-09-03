@@ -9,26 +9,21 @@ interface Task {
   completed: boolean;
 }
 
-interface UpdateTaskBody {
-  title?: string;
-  notes?: string;
-  pomodoros?: number;
-  completed?: boolean;
-}
-
 // GET - Obtener tarea específica
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { data: task, error } = await supabase
+    const { id } = await params;
+    
+    const { data: task } = await supabase
       .from('tasks')
       .select('*')
-      .eq('id', params.id)
+      .eq('id', id)
       .single();
 
-    if (error || !task) {
+    if (!task) {
       return NextResponse.json({ error: 'Tarea no encontrada' }, { status: 404 });
     }
 
@@ -41,20 +36,20 @@ export async function GET(
 // PUT - Actualizar tarea
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const body = await request.json() as UpdateTaskBody;
-    const { title, notes, pomodoros, completed } = body;
-
-    const { data: task, error } = await supabase
+    const { id } = await params;
+    const body: Partial<Task> = await request.json();
+    
+    const { data: task } = await supabase
       .from('tasks')
-      .update({ title, notes, pomodoros, completed })
-      .eq('id', params.id)
+      .update(body)
+      .eq('id', id)
       .select()
       .single();
 
-    if (error || !task) {
+    if (!task) {
       return NextResponse.json({ error: 'Error actualizando tarea' }, { status: 500 });
     }
 
@@ -67,20 +62,18 @@ export async function PUT(
 // DELETE - Eliminar tarea
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { error } = await supabase
+    const { id } = await params;
+    
+    await supabase
       .from('tasks')
       .delete()
-      .eq('id', params.id);
+      .eq('id', id);
 
-    if (error) {
-      return NextResponse.json({ error: 'Error eliminando tarea' }, { status: 500 });
-    }
-
-    return NextResponse.json({ message: 'Tarea eliminada exitosamente' });
+    return NextResponse.json({ message: 'Tarea eliminada' });
   } catch {
-    return NextResponse.json({ error: 'Error procesando solicitud' }, { status: 500 });
+    return NextResponse.json({ error: 'Error eliminando tarea' }, { status: 500 });
   }
 }
