@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
@@ -6,19 +6,20 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// PATCH /api/tasks/:id → Actualizar tarea
+// PATCH /api/tasks/[id]
 export async function PATCH(
-  req: Request,
-  { params }: { params: { id: string } }
+  req: NextRequest,
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await context.params; // 👈 importante: await porque es Promise
     const body = await req.json();
     const { status } = body;
 
     const { data, error } = await supabase
       .from("tasks")
       .update({ status })
-      .eq("id", params.id)
+      .eq("id", id)
       .select();
 
     if (error) {
