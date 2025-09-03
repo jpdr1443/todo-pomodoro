@@ -1,73 +1,78 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { processMessage } from "@/lib/processMessage";
 
-// Configuración del cliente de Supabase con las variables de entorno
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-if (!supabaseUrl || !supabaseKey) {
-  throw new Error("Supabase URL y Key son requeridos.");
+/**
+ * Escapa texto para incluirlo dentro de XML (TwiML).
+ */
+function escapeXml(str: string) {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
 }
 
-const supabase = createClient(supabaseUrl, supabaseKey);
-
-// Procesar el mensaje recibido
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
+    const contentType = (req.headers.get("content-type") || "").toLowerCase();
 
-    // ✅ Validación corregida en una sola línea
-    if (!body || typeof body !== "object" || !("message" in body)) {
-      return NextResponse.json(
-        { error: "Invalid request body" },
-        { status: 400 }
-      );
-    }
+    // Detectamos si viene desde Twilio (form-urlencoded) o desde un cliente JSON (n8n)
+    const isForm = contentType.includes("application/x-www-form-urlencoded") || contentType.includes("multipart/form-data");
 
-    const { message } = body as { message: string };
+    let message: string | null = null;
+    let from: string | null = null;
 
-    // Caso 1: El usuario saluda
-    if (["hola", "hello", "hi"].includes(message.toLowerCase())) {
-      return NextResponse.json({
-        reply: "👋 ¡Hola! Soy tu asistente. Puedes pedirme tus tareas o ayuda.",
-      });
-    }
-
-    // Caso 2: El usuario pide ver sus tareas
-    if (message.toLowerCase().includes("tareas")) {
-      const { data, error } = await supabase.from("tasks").select("*");
-
-      if (error) {
-        return NextResponse.json(
-          { error: "Error al obtener las tareas." },
-          { status: 500 }
-        );
+    if (isForm) {
+      // Twilio envía form-urlencoded -> usar formData()
+      const fd = await req.formData();
+      const bodyVal = fd.get("Body");
+      const fromVal = fd.get("From") ?? fd.get("from") ?? fd.get("FromPhone");
+      message = typeof bodyVal === "string" ? bodyVal : null;
+      from = typeof fromVal === "string" ? fromVal : null;
+    } else {
+      // JSON (p. ej. n8n enviará application/json)
+      const jsonBody: unknown = await req.json();
+      if (typeof jsonBody === "object" && jsonBody !== null) {
+        const jb = jsonBody as Record<string, unknown>;
+        if (typeof jb.message === "string") message = jb.message;
+        if (typeof jb.user_phone === "string") from = jb.user_phone;
+        // también aceptamos 'Body' por compatibilidad:
+        if (!message && typeof jb.Body === "string") message = jb.Body;
       }
+    }
 
-      if (!data || data.length === 0) {
-        return NextResponse.json({
-          reply: "📋 No tienes tareas pendientes.",
+    if (!message) {
+      const errMsg = "No se recibió un mensaje válido. Enviar { message: string } (JSON) o campo Body (form).";
+      if (isForm) {
+        // Responder TwiML
+        return new NextResponse(`<Response><Message>${escapeXml(errMsg)}</Message></Response>`, {
+          headers: { "Content-Type": "application/xml" },
+          status: 400,
         });
       }
+      return NextResponse.json({ error: errMsg }, { status: 400 });
+    }
 
-      const formattedTasks = data
-        .map((task) => `• ${task.title} (${task.status})`)
-        .join("\n");
+    console.log("ai-assistant <-", { from, message: message.slice(0, 200) });
 
-      return NextResponse.json({
-        reply: `📋 Tus tareas:\n${formattedTasks}`,
+    // Llama a tu lógica central (processMessage)
+    // Nota: processMessage debe ser async y devolver string
+    const reply = await processMessage(message);
+
+    // Si la petición venía de Twilio (directa), respondemos TwiML.
+    if (isForm) {
+      return new NextResponse(`<Response><Message>${escapeXml(reply)}</Message></Response>`, {
+        headers: { "Content-Type": "application/xml" },
       });
     }
 
-    // Caso 3: El usuario hace una pregunta abierta (ej: preparar café)
-    return NextResponse.json({
-      reply: `🤖 Aún no entiendo esa pregunta: "${message}". Estoy en entrenamiento.`,
-    });
+    // En caso JSON (n8n), devolvemos JSON con la propiedad 'reply'
+    return NextResponse.json({ reply });
   } catch (err) {
-    console.error(err);
-    return NextResponse.json(
-      { error: "Error procesando la solicitud" },
-      { status: 500 }
-    );
+    const messageErr = err instanceof Error ? err.message : "Error desconocido";
+    console.error("ai-assistant error:", messageErr);
+    // Si falla, siempre devolver JSON 500 (n8n) — si quieres TwiML en Twilio, n8n maneja la entrega.
+    return NextResponse.json({ error: "Error procesando la solicitud", details: messageErr }, { status: 500 });
   }
 }
