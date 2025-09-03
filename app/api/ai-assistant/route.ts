@@ -1,13 +1,26 @@
-// /app/api/ai-assistant/route.ts (Next.js App Router)
+// /app/api/ai-assistant/route.ts
 import { NextResponse } from "next/server";
 import { processMessage } from "@/lib/processMessage";
 
 export async function POST(req: Request) {
   try {
-    const { message } = await req.json();
-    const response = await processMessage(message);
-    return NextResponse.json({ response });
+    const formData = await req.formData();
+    const from = formData.get("From") as string;
+    const body = formData.get("Body") as string;
+
+    console.log("📩 Mensaje recibido:", from, body);
+
+    const response = await processMessage(body);
+
+    // Twilio espera XML
+    return new NextResponse(
+      `<Response><Message>${response}</Message></Response>`,
+      { headers: { "Content-Type": "application/xml" } }
+    );
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return new NextResponse(
+      `<Response><Message>Error: ${err.message}</Message></Response>`,
+      { headers: { "Content-Type": "application/xml" }, status: 500 }
+    );
   }
 }
