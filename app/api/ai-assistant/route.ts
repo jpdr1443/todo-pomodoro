@@ -241,7 +241,7 @@ async function addTaskFromWhatsApp(title: string): Promise<string> {
       return '❌ *Error al crear la tarea*\n\nIntenta de nuevo más tarde.';
     }
 
-    return `✅ *Tarea creada exitosamente*\n\n📋 ${title}\n🍅 1 pomodoro estimado\n\n¡Puedes verla en tu app web!`;
+     return `✅ *Tarea creada exitosamente*\n\n📋 ${title}\n🍅 1 pomodoro estimado\n\n¡Puedes verla en tu app web!`;
 
   } catch (error) {
     console.error('Error en addTaskFromWhatsApp:', error);
