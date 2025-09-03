@@ -1,81 +1,86 @@
-// app/api/task/[id]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '../../../../lib/supabase';
 
-// GET - Obtener una tarea específica
+interface Task {
+  id: number;
+  title: string;
+  notes: string;
+  pomodoros: number;
+  completed: boolean;
+}
+
+interface UpdateTaskBody {
+  title?: string;
+  notes?: string;
+  pomodoros?: number;
+  completed?: boolean;
+}
+
+// GET - Obtener tarea específica
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
-    // Ahora params es una Promise, necesitas await
-    const { id } = await params;
-    
     const { data: task, error } = await supabase
       .from('tasks')
       .select('*')
-      .eq('id', id)
+      .eq('id', params.id)
       .single();
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-
-    if (!task) {
+    if (error || !task) {
       return NextResponse.json({ error: 'Tarea no encontrada' }, { status: 404 });
     }
 
-    return NextResponse.json({ success: true, task });
-  } catch (error) {
-    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
+    return NextResponse.json(task as Task);
+  } catch {
+    return NextResponse.json({ error: 'Error obteniendo tarea' }, { status: 500 });
   }
 }
 
-// PUT - Actualizar una tarea
+// PUT - Actualizar tarea
 export async function PUT(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = await params;
-    const body = await request.json();
+    const body = await request.json() as UpdateTaskBody;
     const { title, notes, pomodoros, completed } = body;
 
-    const { data, error } = await supabase
+    const { data: task, error } = await supabase
       .from('tasks')
       .update({ title, notes, pomodoros, completed })
-      .eq('id', id)
-      .select();
+      .eq('id', params.id)
+      .select()
+      .single();
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error || !task) {
+      return NextResponse.json({ error: 'Error actualizando tarea' }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, task: data[0] });
-  } catch (error) {
-    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
+    return NextResponse.json(task as Task);
+  } catch {
+    return NextResponse.json({ error: 'Error procesando solicitud' }, { status: 500 });
   }
 }
 
-// DELETE - Eliminar una tarea
+// DELETE - Eliminar tarea
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = await params;
-    
     const { error } = await supabase
       .from('tasks')
       .delete()
-      .eq('id', id);
+      .eq('id', params.id);
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ error: 'Error eliminando tarea' }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, message: 'Tarea eliminada' });
-  } catch (error) {
-    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
+    return NextResponse.json({ message: 'Tarea eliminada exitosamente' });
+  } catch {
+    return NextResponse.json({ error: 'Error procesando solicitud' }, { status: 500 });
   }
 }

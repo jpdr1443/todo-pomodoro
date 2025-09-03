@@ -11,6 +11,11 @@ interface Task {
   completed: boolean;
 }
 
+interface RequestBody {
+  message: string;
+  user_phone?: string;
+}
+
 // Inicializar Groq (GRATUITO)
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
@@ -18,7 +23,8 @@ const groq = new Groq({
 
 export async function POST(request: NextRequest) {
   try {
-    const { message, user_phone } = await request.json();
+    const body = await request.json() as RequestBody;
+    const { message, user_phone } = body;
 
     if (!message?.trim()) {
       return NextResponse.json({ error: 'Mensaje requerido' }, { status: 400 });
@@ -34,7 +40,7 @@ export async function POST(request: NextRequest) {
       console.error('Error obteniendo tareas:', tasksError.message);
     }
 
-    const currentTasks: Task[] = tasks || [];
+    const currentTasks: Task[] = (tasks as Task[]) || [];
 
     // Procesar el mensaje con IA
     const aiResponse = await processAIQuery(message, currentTasks);
@@ -100,7 +106,7 @@ INSTRUCCIONES:
           { role: "system", content: systemPrompt },
           { role: "user", content: message }
         ],
-        model: "llama3-8b-8192", // Modelo gratuito y rápido
+        model: "llama3-8b-8192",
         max_tokens: 500,
         temperature: 0.7
       });
@@ -116,12 +122,10 @@ INSTRUCCIONES:
 
     } catch (groqError) {
       console.error('Error con Groq:', groqError);
-      // Fallback a respuestas básicas si Groq falla
       return await getBasicResponse(message, tasks, taskContext);
     }
   }
 
-  // Respuestas básicas (sin IA)
   return await getBasicResponse(message, tasks, taskContext);
 }
 
