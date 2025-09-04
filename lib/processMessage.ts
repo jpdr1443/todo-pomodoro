@@ -232,4 +232,4 @@ INSTRUCCIONES:
     
     return `Error específico con Groq: ${error instanceof Error ? error.message : 'Unknown error'}`;
   }
-}
+ }
