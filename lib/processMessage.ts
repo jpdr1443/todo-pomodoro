@@ -209,7 +209,7 @@ INSTRUCCIONES:
         { role: "system", content: systemPrompt },
         { role: "user", content: message }
       ],
-      model: "llama3-8b-8192",
+      model: "llama-3.1-8b-instant",
       max_tokens: 400,
       temperature: 0.7
     });
