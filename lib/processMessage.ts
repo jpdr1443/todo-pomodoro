@@ -19,7 +19,9 @@ interface Task {
 }
 
 export async function processMessage(message: string): Promise<string> {
+  console.log("DEBUG: processMessage called with:", message);
   const lowerMessage = message.toLowerCase().trim();
+  console.log("DEBUG: lowerMessage:", lowerMessage);
   
   try {
     // Obtener tareas actuales del usuario
@@ -29,9 +31,11 @@ export async function processMessage(message: string): Promise<string> {
       .order('created_at', { ascending: false });
 
     const userTasks: Task[] = (tasks as Task[]) || [];
+    console.log("DEBUG: userTasks count:", userTasks.length);
 
     // 1. Comandos básicos de tareas
     if (lowerMessage.includes('hola') || lowerMessage.includes('hello')) {
+      console.log("DEBUG: Matched hello command");
       return `Hola! Soy tu asistente de productividad Pomodoro.
 
 Comandos disponibles:
@@ -46,6 +50,7 @@ Para consultas generales, solo pregunta como: "¿cómo preparar café?"`;
 
     // 2. Ver todas las tareas
     if (lowerMessage.includes('mis tareas') || lowerMessage.includes('tareas')) {
+      console.log("DEBUG: Matched tareas command");
       if (userTasks.length === 0) {
         return 'No tienes tareas registradas. Puedes crear una nueva enviando: "agregar: [título de la tarea]"';
       }
@@ -59,6 +64,7 @@ Para consultas generales, solo pregunta como: "¿cómo preparar café?"`;
 
     // 3. Ver tareas pendientes
     if (lowerMessage.includes('pendiente')) {
+      console.log("DEBUG: Matched pendientes command");
       const pendingTasks = userTasks.filter(task => task.status !== 'completada');
       
       if (pendingTasks.length === 0) {
@@ -74,6 +80,7 @@ Para consultas generales, solo pregunta como: "¿cómo preparar café?"`;
 
     // 4. Ver tareas completadas
     if (lowerMessage.includes('completada')) {
+      console.log("DEBUG: Matched completadas command");
       const completedTasks = userTasks.filter(task => task.status === 'completada');
       
       if (completedTasks.length === 0) {
@@ -86,6 +93,7 @@ Para consultas generales, solo pregunta como: "¿cómo preparar café?"`;
 
     // 5. Agregar nueva tarea
     if (lowerMessage.startsWith('agregar:')) {
+      console.log("DEBUG: Matched agregar command");
       const taskTitle = message.slice(8).trim(); // Quitar "agregar:"
       
       if (!taskTitle) {
@@ -105,6 +113,7 @@ Para consultas generales, solo pregunta como: "¿cómo preparar café?"`;
 
     // 6. Completar tarea por número
     if (lowerMessage.startsWith('completar:')) {
+      console.log("DEBUG: Matched completar command");
       const taskNumber = parseInt(message.slice(10).trim()); // Quitar "completar:"
       
       if (isNaN(taskNumber) || taskNumber < 1) {
@@ -132,6 +141,7 @@ Para consultas generales, solo pregunta como: "¿cómo preparar café?"`;
 
     // 7. Estadísticas/resumen
     if (lowerMessage.includes('resumen') || lowerMessage.includes('estadistica')) {
+      console.log("DEBUG: Matched resumen command");
       const completedCount = userTasks.filter(t => t.status === 'completada').length;
       const pendingCount = userTasks.filter(t => t.status !== 'completada').length;
       
@@ -143,6 +153,7 @@ Para consultas generales, solo pregunta como: "¿cómo preparar café?"`;
 
     // 8. Ayuda
     if (lowerMessage.includes('ayuda') || lowerMessage.includes('help')) {
+      console.log("DEBUG: Matched ayuda command");
       return `🤖 Comandos disponibles:\n\n` +
              `📋 "mis tareas" - Ver todas las tareas\n` +
              `⏳ "pendientes" - Ver tareas por hacer\n` +
@@ -154,11 +165,11 @@ Para consultas generales, solo pregunta como: "¿cómo preparar café?"`;
     }
 
     // 9. Consultas complejas con IA (Groq)
-    // Si no es ningún comando específico, usar IA
+    console.log("DEBUG: No command matched, going to AI with message:", message);
     return await processGroqQuery(message, userTasks);
 
   } catch (error) {
-    console.error('Error en processMessage:', error);
+    console.error('DEBUG: Error en processMessage:', error);
     return 'Error procesando tu mensaje. Intenta de nuevo más tarde.';
   }
 }
@@ -166,7 +177,9 @@ Para consultas generales, solo pregunta como: "¿cómo preparar café?"`;
 // Función para procesar consultas complejas con Groq
 async function processGroqQuery(message: string, tasks: Task[]): Promise<string> {
   try {
+    console.log("DEBUG: processGroqQuery called");
     console.log("DEBUG: GROQ_API_KEY exists:", !!process.env.GROQ_API_KEY);
+    console.log("DEBUG: GROQ_API_KEY length:", process.env.GROQ_API_KEY?.length || 0);
     console.log("DEBUG: Message received:", message);
     console.log("DEBUG: Tasks count:", tasks.length);
     
@@ -203,7 +216,8 @@ INSTRUCCIONES:
 
     console.log("DEBUG: Groq response received successfully");
     const response = completion.choices[0]?.message?.content || 'No response from Groq';
-    console.log("DEBUG: Response content:", response.substring(0, 100) + "...");
+    console.log("DEBUG: Response content length:", response.length);
+    console.log("DEBUG: Response preview:", response.substring(0, 100) + "...");
     
     return response;
 
@@ -211,6 +225,8 @@ INSTRUCCIONES:
     console.error('DEBUG: DETAILED Groq error:', {
       name: error instanceof Error ? error.name : 'Unknown',
       message: error instanceof Error ? error.message : 'Unknown error',
+      status: (error as any)?.status || 'No status',
+      statusText: (error as any)?.statusText || 'No statusText',
       stack: error instanceof Error ? error.stack?.substring(0, 500) : undefined
     });
     
