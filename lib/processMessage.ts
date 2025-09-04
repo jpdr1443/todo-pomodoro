@@ -1,14 +1,15 @@
 import { createClient } from "@supabase/supabase-js";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import Groq from 'groq-sdk';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// Inicializar Google Gemini
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
-const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+// Inicializar Groq
+const groq = new Groq({
+  apiKey: process.env.GROQ_API_KEY || '',
+});
 
 interface Task {
   id: number;
@@ -152,9 +153,9 @@ Para consultas generales, solo pregunta como: "¿cómo preparar café?"`;
              `🤖 Pregunta cualquier cosa: "¿cómo preparar café?"`;
     }
 
-    // 9. Consultas complejas con IA (Gemini)
+    // 9. Consultas complejas con IA (Groq)
     // Si no es ningún comando específico, usar IA
-    return await processGeminiQuery(message, userTasks);
+    return await processGroqQuery(message, userTasks);
 
   } catch (error) {
     console.error('Error en processMessage:', error);
@@ -162,8 +163,8 @@ Para consultas generales, solo pregunta como: "¿cómo preparar café?"`;
   }
 }
 
-// Función para procesar consultas complejas con Gemini
-async function processGeminiQuery(message: string, tasks: Task[]): Promise<string> {
+// Función para procesar consultas complejas con Groq
+async function processGroqQuery(message: string, tasks: Task[]): Promise<string> {
   try {
     // Crear contexto de tareas para la IA
     const taskContext = tasks.length > 0 
@@ -184,7 +185,6 @@ INSTRUCCIONES:
 - Incluye tips de productividad cuando sea relevante
 - Mantén respuestas concisas para WhatsApp (máximo 300 palabras)
 - Usa formato claro con saltos de línea
-- Si es una pregunta muy específica sobre un tema, da información general útil
 - Responde en español
 - Sé directo y práctico
 
@@ -193,20 +193,23 @@ EJEMPLOS DE RESPUESTAS:
 - "¿Cómo ser más productivo?" → Tips de productividad y técnica Pomodoro
 - "¿Qué hacer cuando estoy estresado?" → Técnicas de manejo de estrés`;
 
-    const fullPrompt = `${systemPrompt}\n\nPregunta del usuario: ${message}`;
+    const completion = await groq.chat.completions.create({
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: message }
+      ],
+      model: "llama3-8b-8192", // Modelo gratuito de Groq
+      max_tokens: 400,
+      temperature: 0.7
+    });
 
-    const result = await model.generateContent(fullPrompt);
-    const response = await result.response;
-    const geminiResponse = response.text();
-
-    if (!geminiResponse || geminiResponse.trim().length === 0) {
-      throw new Error('Respuesta vacía de Gemini');
-    }
+    const groqResponse = completion.choices[0]?.message?.content || 
+      'No pude procesar tu consulta en este momento. Intenta de nuevo más tarde.';
     
-    return geminiResponse;
+    return groqResponse;
 
   } catch (error) {
-    console.error('Error con Gemini AI:', error);
+    console.error('Error con Groq AI:', error);
     
     // Fallback: respuesta básica sin IA
     return `No pude procesar tu consulta compleja en este momento.
