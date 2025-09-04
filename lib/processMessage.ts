@@ -166,6 +166,10 @@ Para consultas generales, solo pregunta como: "¿cómo preparar café?"`;
 // Función para procesar consultas complejas con Groq
 async function processGroqQuery(message: string, tasks: Task[]): Promise<string> {
   try {
+    console.log("DEBUG: GROQ_API_KEY exists:", !!process.env.GROQ_API_KEY);
+    console.log("DEBUG: Message received:", message);
+    console.log("DEBUG: Tasks count:", tasks.length);
+    
     // Crear contexto de tareas para la IA
     const taskContext = tasks.length > 0 
       ? tasks.map(task => 
@@ -182,44 +186,34 @@ INSTRUCCIONES:
 - Si preguntan sobre sus tareas, usa el contexto proporcionado
 - Para preguntas generales (como preparar café, consejos, tutoriales), da respuestas útiles y prácticas
 - Para consultas de "cómo hacer algo", proporciona pasos específicos y claros
-- Incluye tips de productividad cuando sea relevante
 - Mantén respuestas concisas para WhatsApp (máximo 300 palabras)
-- Usa formato claro con saltos de línea
-- Responde en español
-- Sé directo y práctico
+- Responde en español`;
 
-EJEMPLOS DE RESPUESTAS:
-- "¿Cómo preparar café?" → Pasos específicos para preparar café
-- "¿Cómo ser más productivo?" → Tips de productividad y técnica Pomodoro
-- "¿Qué hacer cuando estoy estresado?" → Técnicas de manejo de estrés`;
+    console.log("DEBUG: About to call Groq API");
 
     const completion = await groq.chat.completions.create({
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: message }
       ],
-      model: "llama3-8b-8192", // Modelo gratuito de Groq
+      model: "llama3-8b-8192",
       max_tokens: 400,
       temperature: 0.7
     });
 
-    const groqResponse = completion.choices[0]?.message?.content || 
-      'No pude procesar tu consulta en este momento. Intenta de nuevo más tarde.';
+    console.log("DEBUG: Groq response received successfully");
+    const response = completion.choices[0]?.message?.content || 'No response from Groq';
+    console.log("DEBUG: Response content:", response.substring(0, 100) + "...");
     
-    return groqResponse;
+    return response;
 
   } catch (error) {
-    console.error('Error con Groq AI:', error);
+    console.error('DEBUG: DETAILED Groq error:', {
+      name: error instanceof Error ? error.name : 'Unknown',
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack?.substring(0, 500) : undefined
+    });
     
-    // Fallback: respuesta básica sin IA
-    return `No pude procesar tu consulta compleja en este momento.
-
-Comandos disponibles:
-• "ayuda" - Ver todos los comandos
-• "mis tareas" - Ver tus tareas
-• "agregar: [título]" - Crear tarea
-• "pendientes" - Ver tareas por hacer
-
-Intenta de nuevo más tarde para consultas con IA.`;
+    return `Error específico con Groq: ${error instanceof Error ? error.message : 'Unknown error'}`;
   }
 }
