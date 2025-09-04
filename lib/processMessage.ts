@@ -225,8 +225,8 @@ INSTRUCCIONES:
     console.error('DEBUG: DETAILED Groq error:', {
       name: error instanceof Error ? error.name : 'Unknown',
       message: error instanceof Error ? error.message : 'Unknown error',
-      status: (error as any)?.status || 'No status',
-      statusText: (error as any)?.statusText || 'No statusText',
+      status: error && typeof error === 'object' && 'status' in error ? error.status : 'No status',
+      statusText: error && typeof error === 'object' && 'statusText' in error ? error.statusText : 'No statusText',
       stack: error instanceof Error ? error.stack?.substring(0, 500) : undefined
     });
     
